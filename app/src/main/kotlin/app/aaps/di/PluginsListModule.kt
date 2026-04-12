@@ -280,6 +280,7 @@ abstract class PluginsListModule {
     @IntoMap
     @IntKey(440)
     abstract fun bindDexcomPlugin(plugin: DexcomPlugin): PluginBase
+    @Binds abstract fun bindEversensePlugin(plugin: EversensePlugin): PluginBase
 
     @Binds
     @AllConfigs

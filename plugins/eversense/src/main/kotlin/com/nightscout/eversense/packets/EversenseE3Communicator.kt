@@ -12,6 +12,13 @@ import com.nightscout.eversense.models.EversenseCGMResult
 import com.nightscout.eversense.models.EversenseState
 import com.nightscout.eversense.models.EversenseTransmitterSettings
 import com.nightscout.eversense.packets.e3.GetBatteryPercentagePacket
+import com.nightscout.eversense.packets.e3.GetVersionPacket
+import com.nightscout.eversense.packets.e3.GetVersionExtendedPacket
+import com.nightscout.eversense.packets.e3.GetMmaFeaturesPacket
+import com.nightscout.eversense.packets.e3.GetHighGlucoseRepeatIntervalPacket
+import com.nightscout.eversense.packets.e3.GetLowGlucoseRepeatIntervalPacket
+import com.nightscout.eversense.packets.e3.SetBleDisconnectPacket
+import com.nightscout.eversense.packets.e3.SetAppVersionE3Packet
 import com.nightscout.eversense.packets.e3.GetCalibrationDailyPacket
 import com.nightscout.eversense.packets.e3.GetCalibrationPhasePacket
 import com.nightscout.eversense.packets.e3.GetCalibrationReadinessPacket
@@ -37,6 +44,7 @@ import com.nightscout.eversense.packets.e3.GetSettingRateFallingThresholdPacket
 import com.nightscout.eversense.packets.e3.GetSettingRateRisingEnabledPacket
 import com.nightscout.eversense.packets.e3.GetSettingRateRisingThresholdPacket
 import com.nightscout.eversense.packets.e3.GetSettingVibratePacket
+import com.nightscout.eversense.packets.e3.SetBloodGlucosePointPacket
 import com.nightscout.eversense.packets.e3.SetCurrentDatetimePacket
 import com.nightscout.eversense.packets.e3.SetSettingGlucoseHighEnablePacket
 import com.nightscout.eversense.packets.e3.SetSettingGlucoseHighThresholdPacket
@@ -108,6 +116,13 @@ class EversenseE3Communicator {
                     putString(StorageKeys.STATE, JSON.encodeToString(state))
                 }
 
+                // Read RSSI to update placement signal after each glucose reading
+                try {
+                    EversenseLogger.debug(TAG, "Reading RSSI for placement signal...")
+                } catch (e: Exception) {
+                    EversenseLogger.warning(TAG, "Failed to read RSSI: $e")
+                }
+
                 handler.post {
                     watchers.forEach {
                         it.onCGMRead(EversenseType.EVERSENSE_E3, result)
@@ -118,13 +133,13 @@ class EversenseE3Communicator {
             }
         }
 
-        fun fullSync(gatt: EversenseGattCallback, preferences: SharedPreferences, watchers: List<EversenseWatcher>) {
+        fun fullSync(gatt: EversenseGattCallback, preferences: SharedPreferences, watchers: List<EversenseWatcher>, force: Boolean = false) {
             try {
                 val stateJson = preferences.getString(StorageKeys.STATE, null) ?: "{}"
                 val state = JSON.decodeFromString<EversenseState>(stateJson)
                 val fourHalfMinAgo = System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(270)
 
-                if (fourHalfMinAgo < state.lastSync) {
+                if (!force && fourHalfMinAgo < state.lastSync) {
                     EversenseLogger.warning(TAG, "State is still fresh - lastSync: ${state.lastSync}")
                     return
                 }
@@ -154,7 +169,7 @@ class EversenseE3Communicator {
                 val lastCalibrationTime = gatt.writePacket<GetLastCalibrationTimePacket.Response>(GetLastCalibrationTimePacket())
 
                 try {
-                    // Older E3 transmitters might not have this data point, thus we are allowed to ignore the expection
+                    // Older E3 transmitters might not have this data point, thus we are allowed to ignore the exception
                     val isDailyCalibration = gatt.writePacket<GetCalibrationDailyPacket.Response>(GetCalibrationDailyPacket())
                     state.calibrationMode = if (isDailyCalibration.isDaily) CalibrationMode.DAILY_SINGLE else CalibrationMode.DAILY_DUAL
                 } catch(exception: Exception) {
@@ -197,6 +212,30 @@ class EversenseE3Communicator {
                 state.settings.predictiveLowAlarmEnabled = predictiveLowEnabled.enabled
                 state.settings.predictiveLowAlarmMinutes = predictiveLowTime.minutes
                 state.settings.predictiveLowAlarmThreshold = predictiveLowThreshold.threshold
+
+                // Get firmware version — aligns with iOS GetVersionPacket
+                try {
+                    val version = gatt.writePacket<GetVersionPacket.Response>(GetVersionPacket())
+                    if (version != null) state.firmwareVersion = version.version
+                } catch (e: Exception) { EversenseLogger.warning(TAG, "GetVersion failed: $e") }
+
+                // Get extended firmware version
+                try {
+                    val extVersion = gatt.writePacket<GetVersionExtendedPacket.Response>(GetVersionExtendedPacket())
+                    if (extVersion != null) state.extFirmwareVersion = extVersion.extVersion
+                } catch (e: Exception) { EversenseLogger.warning(TAG, "GetVersionExtended failed: $e") }
+
+                // Get MMA features
+                try {
+                    val mma = gatt.writePacket<GetMmaFeaturesPacket.Response>(GetMmaFeaturesPacket())
+                    if (mma != null) state.mmaFeatures = mma.value
+                } catch (e: Exception) { EversenseLogger.warning(TAG, "GetMmaFeatures failed: $e") }
+
+                // Set app version — iOS sends 8.0.4 in every fullSync
+                try { gatt.writePacket<SetAppVersionE3Packet.Response>(SetAppVersionE3Packet()) } catch (e: Exception) { EversenseLogger.warning(TAG, "SetAppVersionE3 failed: $e") }
+
+                // Set BLE disconnect timeout — 300s matching iOS default
+                try { gatt.writePacket<SetBleDisconnectPacket.Response>(SetBleDisconnectPacket(300)) } catch (e: Exception) { EversenseLogger.warning(TAG, "SetBleDisconnect E3 failed: $e") }
 
                 state.lastSync = System.currentTimeMillis()
                 EversenseLogger.info(TAG, "Completed full sync - datetime: ${state.lastSync}")
@@ -243,9 +282,19 @@ class EversenseE3Communicator {
 
                 return true
             } catch (exception: Exception) {
-                EversenseLogger.error(TAG, "Failed to do full sync: $exception")
+                EversenseLogger.error(TAG, "Failed to write settings: $exception")
                 return false
             }
+        }
+
+        // Send a blood glucose calibration value to the E3 transmitter.
+        // The transmitter must be in CalibrationReadiness.READY state.
+        // Throws EversenseWriteException if the packet fails.
+        fun sendCalibration(gatt: EversenseGattCallback, glucoseMgDl: Int) {
+            EversenseLogger.info(TAG, "Sending calibration value: $glucoseMgDl mg/dL")
+            val now = System.currentTimeMillis()
+            gatt.writePacket<SetBloodGlucosePointPacket.Response>(SetBloodGlucosePointPacket(glucoseMgDl, now), 15000L)
+            EversenseLogger.info(TAG, "Calibration sent successfully")
         }
     }
 }

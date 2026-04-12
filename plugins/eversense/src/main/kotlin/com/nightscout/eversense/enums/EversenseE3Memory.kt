@@ -26,7 +26,18 @@ enum class EversenseE3Memory(private val address: Long) {
     RateFallingAlert(0x0000_1025),
     RateRisingAlert(0x0000_1026),
     RateFallingThreshold(0x0000_1011),
-    RateRisingThreshold(0x0000_1012);
+    RateRisingThreshold(0x0000_1012),
+    SensorFieldCurrentRaw(0x0000_0874),
+    TransmitterSoftwareVersion(0x0000_000A),
+    TransmitterSoftwareVersionExt(0x0000_00A2),
+    MmaFeatures(0x0000_0137),
+    AppVersion(0x0000_0B4B),
+    BleDisconnect(0x0000_08B2),
+    HighGlucoseAlarmRepeatIntervalDay(0x0000_1033),
+    LowGlucoseAlarmRepeatIntervalDay(0x0000_1032),
+    HighGlucoseAlarmRepeatIntervalNight(0x0000_110F),
+    LowGlucoseAlarmRepeatIntervalNight(0x0000_110E),
+    CalibrationsMadeInThisPhase(0x0000_08A1);
 
     fun getRequestData(): ByteArray {
         return byteArrayOf(

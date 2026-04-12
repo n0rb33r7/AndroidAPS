@@ -5,6 +5,7 @@ import com.nightscout.eversense.enums.EversenseTrendArrow
 import com.nightscout.eversense.packets.EversenseBasePacket
 import com.nightscout.eversense.packets.EversensePacket
 import com.nightscout.eversense.packets.e365.utils.toInt
+import com.nightscout.eversense.util.EversenseLogger
 import com.nightscout.eversense.packets.e365.utils.toUnix
 
 @EversensePacket(
@@ -23,14 +24,13 @@ class GetGlucoseDataPacket(private val sensorIdLen: Int) : EversenseBasePacket()
     // 42 1F -> CmdType & CmdId
     // F6 95 86 CB C1 00 00 00 -> Current datetime
     // 00 -> Sensor type
-    // 0A -> Sensor ID length (might be 00, then use the sensor ID length from GetSensorInformationPacket)
-    // 00 00 00 00 00 00 00 00 00 00 -> Sensor ID (size is based on previous value)
+    // 0A -> Sensor ID length
+    // 00 00 00 00 00 00 00 00 00 00 -> Sensor ID
     // 00 18 82 cb c1 00 00 00 -> Most recent glucose datetime
     // bc 00 -> Most recent glucose value
-    // 32 00 -> Signal strength
-    // 00 00 -> Glucose unavailable reason (undocumented enum)
-    // 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 -> Measurement (length 136 bytes)
-    // 05 00 -> Trend value
+    // 32 00 -> Signal strength (transmitter-to-sensor, little-endian UInt16)
+    // 00 00 -> Glucose unavailable reason
+    // ... measurement bytes ...
     // 04 -> Trend direction
     // 00 00 00 00 -> Sensor temperature
     // 00 00 00 00 -> MSP
@@ -54,24 +54,46 @@ class GetGlucoseDataPacket(private val sensorIdLen: Int) : EversenseBasePacket()
             sensorIdLen = this.sensorIdLen
         }
 
+        // Signal strength at bytes 22+sensorIdLen (little-endian UInt16)
+        val signalRaw = (receivedData[22 + sensorIdLen].toInt() and 0xFF) or
+            ((receivedData[23 + sensorIdLen].toInt() and 0xFF) shl 8)
+
+        EversenseLogger.info("GetGlucoseDataPacket", "Sensor signal strength raw: $signalRaw")
+
+        val sensorId = receivedData.copyOfRange(12, 12 + sensorIdLen)
+            .toByteArray().joinToString("") { "%02x".format(it) }
+        val rawHex = receivedData.toByteArray().joinToString("") { "%02x".format(it) }
+
         return Response(
             datetime = receivedData.copyOfRange(12+sensorIdLen, 20+sensorIdLen).toUnix(),
             glucoseInMgDl = receivedData.copyOfRange(20+sensorIdLen, 22+sensorIdLen).toInt(),
-            trend = getTrend(receivedData[164 + sensorIdLen].toInt())
+            trend = getTrend(receivedData[164 + sensorIdLen].toInt()),
+            signalStrength = signalRaw,
+            sensorId = sensorId,
+            rawResponseHex = rawHex
         )
     }
 
     private fun getTrend(value: Int): EversenseTrendArrow {
-        return when(value) {
+        return when (value) {
             0 -> EversenseTrendArrow.FLAT
-            1 -> EversenseTrendArrow.SINGLE_DOWN
-            2 -> EversenseTrendArrow.FORTY_FIVE_DOWN
-            4 -> EversenseTrendArrow.FLAT
-            8 -> EversenseTrendArrow.FORTY_FIVE_UP
+            1  -> EversenseTrendArrow.SINGLE_DOWN
+            2  -> EversenseTrendArrow.FORTY_FIVE_DOWN
+            4  -> EversenseTrendArrow.FLAT
+            8  -> EversenseTrendArrow.FORTY_FIVE_UP
             16 -> EversenseTrendArrow.SINGLE_UP
+            32 -> EversenseTrendArrow.SINGLE_DOWN
+            64 -> EversenseTrendArrow.SINGLE_UP
             else -> EversenseTrendArrow.NONE
         }
     }
 
-    data class Response(val datetime: Long, val glucoseInMgDl: Int, val trend: EversenseTrendArrow) : EversenseBasePacket.Response()
+    data class Response(
+        val datetime: Long,
+        val glucoseInMgDl: Int,
+        val trend: EversenseTrendArrow,
+        val signalStrength: Int,
+        val sensorId: String = "",
+        val rawResponseHex: String = ""
+    ) : EversenseBasePacket.Response()
 }

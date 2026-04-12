@@ -26,7 +26,7 @@ class EversenseE3Writer {
         }
 
         fun writeDate(timestamp: Long): ByteArray {
-            val calendar = Calendar.getInstance()
+            val calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT"))
             calendar.setTimeInMillis(timestamp)
 
             val year = calendar.get(Calendar.YEAR) - 2000

@@ -23,6 +23,14 @@ class EversenseState {
     var recentGlucoseValue: Int = 0
     var lastGlucoseRaw: Int = 0
 
+    var placementSignalRssi: Int = 0
+    var sensorSignalStrength: Int = 0
+    var activeAlarms: List<ActiveAlarm> = emptyList()
+    var firmwareVersion: String = ""
+    var mmaFeatures: Int = 0
+    var extFirmwareVersion: String = ""
+    var transmitterSerialNumber: String = ""
+    var sensorId: String = ""
     var settings = EversenseTransmitterSettings()
 }
 
