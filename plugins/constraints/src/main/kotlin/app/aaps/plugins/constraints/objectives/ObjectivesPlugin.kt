@@ -18,6 +18,7 @@ import app.aaps.core.interfaces.resources.ResourceHelper
 import app.aaps.core.keys.BooleanNonKey
 import app.aaps.core.keys.IntNonKey
 import app.aaps.core.keys.interfaces.Preferences
+import app.aaps.core.ui.compose.icons.IcPluginObjectives
 import app.aaps.plugins.constraints.R
 import app.aaps.plugins.constraints.objectives.keys.ObjectivesBooleanComposedKey
 import app.aaps.plugins.constraints.objectives.keys.ObjectivesLongComposedKey
@@ -36,7 +37,7 @@ class ObjectivesPlugin @Inject constructor(
     pluginDescription = PluginDescription()
         .mainType(PluginType.CONSTRAINTS)
         .fragmentClass(ObjectivesFragment::class.qualifiedName)
-        .pluginIcon(app.aaps.core.ui.R.drawable.ic_graduation)
+        .icon(IcPluginObjectives)
         .pluginName(app.aaps.core.ui.R.string.objectives)
         .shortName(R.string.objectives_shortname)
         .enableByDefault(config.APS)
@@ -57,7 +58,6 @@ class ObjectivesPlugin @Inject constructor(
         preferences.put(BooleanNonKey.ObjectivesDisconnectUsed, false)
         preferences.put(BooleanNonKey.ObjectivesReconnectUsed, false)
         preferences.put(BooleanNonKey.ObjectivesTempTargetUsed, false)
-        preferences.put(BooleanNonKey.ObjectivesActionsUsed, false)
         preferences.put(BooleanNonKey.ObjectivesLoopUsed, false)
         preferences.put(BooleanNonKey.ObjectivesScaleUsed, false)
     }

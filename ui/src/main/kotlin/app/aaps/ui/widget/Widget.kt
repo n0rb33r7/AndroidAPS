@@ -30,7 +30,6 @@ import app.aaps.core.interfaces.plugin.ActivePlugin
 import app.aaps.core.interfaces.profile.ProfileFunction
 import app.aaps.core.interfaces.profile.ProfileUtil
 import app.aaps.core.interfaces.resources.ResourceHelper
-import app.aaps.core.interfaces.ui.UiInteraction
 import app.aaps.core.interfaces.utils.DateUtil
 import app.aaps.core.interfaces.utils.DecimalFormatter
 import app.aaps.core.interfaces.utils.TrendCalculator
@@ -45,6 +44,7 @@ import app.aaps.core.ui.extensions.toVisibility
 import app.aaps.core.ui.extensions.toVisibilityKeepSpace
 import app.aaps.ui.R
 import dagger.android.HasAndroidInjector
+import kotlinx.coroutines.runBlocking
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.abs
@@ -59,7 +59,6 @@ class Widget : AppWidgetProvider() {
     @Inject lateinit var overviewData: OverviewData
     @Inject lateinit var lastBgData: LastBgData
     @Inject lateinit var trendCalculator: TrendCalculator
-    @Inject lateinit var uiInteraction: UiInteraction
     @Inject lateinit var rh: ResourceHelper
     @Inject lateinit var glucoseStatusProvider: GlucoseStatusProvider
     @Inject lateinit var dateUtil: DateUtil
@@ -90,7 +89,6 @@ class Widget : AppWidgetProvider() {
         }
     }
 
-    private val intentAction = "OpenApp"
 
     override fun onReceive(context: Context, intent: Intent?) {
         (context.applicationContext as HasAndroidInjector).androidInjector().inject(this)
@@ -118,29 +116,33 @@ class Widget : AppWidgetProvider() {
         val alpha = preferences.get(IntComposedKey.WidgetOpacity, appWidgetId)
         val useBlack = preferences.get(BooleanComposedKey.WidgetUseBlack, appWidgetId)
 
-        // Create an Intent to launch MainActivity when clicked
-        val intent = Intent(context, uiInteraction.mainActivity).also { it.action = intentAction }
-        val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        // Create an Intent to launch the main (launcher) activity when clicked
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        val pendingIntent = intent?.let { PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT) }
         // Widgets allow click handlers to only launch pending intents
-        views.setOnClickPendingIntent(R.id.widget_layout, pendingIntent)
+        pendingIntent?.let { views.setOnClickPendingIntent(R.id.widget_layout, it) }
         if (config.APS || useBlack)
             views.setInt(R.id.widget_layout, "setBackgroundColor", Color.argb(alpha, 0, 0, 0))
         else if (config.AAPSCLIENT1)
             views.setInt(R.id.widget_layout, "setBackgroundColor", Color.argb(alpha, 0xE8, 0xC5, 0x0C))
         else if (config.AAPSCLIENT2)
             views.setInt(R.id.widget_layout, "setBackgroundColor", Color.argb(alpha, 0x0F, 0xBB, 0xE0))
+        else if (config.AAPSCLIENT3)
+            views.setInt(R.id.widget_layout, "setBackgroundColor", Color.argb(alpha, 0x4C, 0xAF, 0x50))
 
         handler.post {
-            if (config.appInitialized) {
-                updateBg(views)
-                updateTemporaryBasal(views)
-                updateExtendedBolus(views)
-                updateIobCob(views)
-                updateTemporaryTarget(views)
-                updateProfile(views)
-                updateSensitivity(views)
-                // Instruct the widget manager to update the widget
-                appWidgetManager.updateAppWidget(appWidgetId, views)
+            runBlocking {
+                if (config.appInitialized) {
+                    updateBg(views)
+                    updateTemporaryBasal(views)
+                    updateExtendedBolus(views)
+                    updateIobCob(views)
+                    updateTemporaryTarget(views)
+                    updateProfile(views)
+                    updateSensitivity(views)
+                    // Instruct the widget manager to update the widget
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                }
             }
         }
     }
@@ -197,25 +199,25 @@ class Widget : AppWidgetProvider() {
     private fun updateExtendedBolus(views: RemoteViews) {
         val pump = activePlugin.activePump
         views.setTextViewText(R.id.extended_bolus, overviewData.extendedBolusText())
-        views.setViewVisibility(R.id.extended_layout, (persistenceLayer.getExtendedBolusActiveAt(dateUtil.now()) != null && !pump.isFakingTempsByExtendedBoluses).toVisibility())
+        views.setViewVisibility(R.id.extended_layout, (runBlocking { persistenceLayer.getExtendedBolusActiveAt(dateUtil.now()) } != null && !pump.isFakingTempsByExtendedBoluses).toVisibility())
     }
 
-    private fun bolusIob(): IobTotal = iobCobCalculator.calculateIobFromBolus().round()
-    private fun basalIob(): IobTotal = iobCobCalculator.calculateIobFromTempBasalsIncludingConvertedExtended().round()
+    private fun bolusIob(): IobTotal = runBlocking { iobCobCalculator.calculateIobFromBolus() }.round()
+    private fun basalIob(): IobTotal = runBlocking { iobCobCalculator.calculateIobFromTempBasalsIncludingConvertedExtended() }.round()
     private fun iobText(): String =
         rh.gs(app.aaps.core.ui.R.string.format_insulin_units, bolusIob().iob + basalIob().basaliob)
 
     private fun updateIobCob(views: RemoteViews) {
         views.setTextViewText(R.id.iob, iobText())
         // cob
-        var cobText = iobCobCalculator.getCobInfo("Overview COB").displayText(rh, decimalFormatter) ?: rh.gs(app.aaps.core.ui.R.string.value_unavailable_short)
+        var cobText = runBlocking { iobCobCalculator.getCobInfo("Overview COB") }.displayText(rh, decimalFormatter) ?: rh.gs(app.aaps.core.ui.R.string.value_unavailable_short)
 
         val constraintsProcessed = loop.lastRun?.constraintsProcessed
         val lastRun = loop.lastRun
         if (config.APS && constraintsProcessed != null && lastRun != null) {
             if (constraintsProcessed.carbsReq > 0) {
                 //only display carbsreq when carbs have not been entered recently
-                val lastCarbsTime = persistenceLayer.getNewestCarbs()?.timestamp ?: 0L
+                val lastCarbsTime = runBlocking { persistenceLayer.getNewestCarbs() }?.timestamp ?: 0L
                 if (lastCarbsTime < lastRun.lastAPSRun) {
                     cobText += " | " + constraintsProcessed.carbsReq + " " + rh.gs(app.aaps.core.ui.R.string.required)
                 }
@@ -224,7 +226,7 @@ class Widget : AppWidgetProvider() {
         views.setTextViewText(R.id.cob, cobText)
     }
 
-    private fun updateTemporaryTarget(views: RemoteViews) {
+    private suspend fun updateTemporaryTarget(views: RemoteViews) {
         val units = profileFunction.getUnits()
         val tempTarget = persistenceLayer.getTemporaryTargetActiveAt(dateUtil.now())
         if (tempTarget != null) {
@@ -259,7 +261,7 @@ class Widget : AppWidgetProvider() {
         }
     }
 
-    private fun updateProfile(views: RemoteViews) {
+    private suspend fun updateProfile(views: RemoteViews) {
         val profileTextColor =
             profileFunction.getProfile()?.let {
                 if (it is ProfileSealed.EPS) {
@@ -280,7 +282,7 @@ class Widget : AppWidgetProvider() {
         views.setTextColor(R.id.active_profile, profileTextColor)
     }
 
-    private fun updateSensitivity(views: RemoteViews) {
+    private suspend fun updateSensitivity(views: RemoteViews) {
         val lastAutosensData = iobCobCalculator.ads.getLastAutosensData("Widget", aapsLogger, dateUtil)
         val lastAutosensRatio = lastAutosensData?.let { it.autosensResult.ratio * 100 }
         if (constraintChecker.isAutosensModeEnabled().value())

@@ -1,12 +1,14 @@
 package app.aaps.plugins.automation
 
+import android.Manifest
 import android.content.Context
 import android.os.Handler
-import android.os.HandlerThread
+import android.os.Looper
 import android.os.SystemClock
-import androidx.preference.PreferenceCategory
-import androidx.preference.PreferenceManager
-import androidx.preference.PreferenceScreen
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import app.aaps.core.data.model.GlucoseUnit
 import app.aaps.core.data.plugin.PluginType
 import app.aaps.core.data.pump.defs.PumpType
@@ -19,22 +21,22 @@ import app.aaps.core.interfaces.constraints.ConstraintsChecker
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.logging.LTag
 import app.aaps.core.interfaces.plugin.ActivePlugin
+import app.aaps.core.interfaces.plugin.PermissionGroup
 import app.aaps.core.interfaces.plugin.PluginBase
 import app.aaps.core.interfaces.plugin.PluginBaseWithPreferences
 import app.aaps.core.interfaces.plugin.PluginDescription
 import app.aaps.core.interfaces.queue.Callback
+import app.aaps.core.interfaces.receivers.ReceiverStatusStore
 import app.aaps.core.interfaces.resources.ResourceHelper
 import app.aaps.core.interfaces.rx.AapsSchedulers
 import app.aaps.core.interfaces.rx.bus.RxBus
 import app.aaps.core.interfaces.rx.events.EventBTChange
-import app.aaps.core.interfaces.rx.events.EventChargingState
-import app.aaps.core.interfaces.rx.events.EventNetworkChange
-import app.aaps.core.interfaces.rx.events.EventPreferenceChange
 import app.aaps.core.interfaces.utils.DateUtil
 import app.aaps.core.interfaces.utils.fabric.FabricPrivacy
 import app.aaps.core.keys.StringKey
 import app.aaps.core.keys.interfaces.Preferences
-import app.aaps.core.validators.preferences.AdaptiveListPreference
+import app.aaps.core.ui.compose.icons.IcPluginAutomation
+import app.aaps.core.ui.compose.preference.PreferenceSubScreenDef
 import app.aaps.plugins.automation.actions.Action
 import app.aaps.plugins.automation.actions.ActionAlarm
 import app.aaps.plugins.automation.actions.ActionCarePortalEvent
@@ -86,6 +88,17 @@ import app.aaps.plugins.automation.ui.TimerUtil
 import dagger.android.HasAndroidInjector
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.kotlin.plusAssign
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -110,30 +123,30 @@ class AutomationPlugin @Inject constructor(
     private val locationServiceHelper: LocationServiceHelper,
     private val dateUtil: DateUtil,
     private val activePlugin: ActivePlugin,
-    private val timerUtil: TimerUtil
+    private val timerUtil: TimerUtil,
+    private val receiverStatusStore: ReceiverStatusStore
 ) : PluginBaseWithPreferences(
     pluginDescription = PluginDescription()
         .mainType(PluginType.GENERAL)
         .fragmentClass(AutomationFragment::class.qualifiedName)
-        .pluginIcon(app.aaps.core.objects.R.drawable.ic_automation)
+        .icon(IcPluginAutomation)
         .pluginName(R.string.automation)
         .shortName(R.string.automation_short)
         .showInList { config.APS }
         .neverVisible(!config.APS)
-        .preferencesId(PluginDescription.PREFERENCE_SCREEN)
         .description(R.string.automation_description),
     ownPreferences = listOf(AutomationStringKey::class.java),
     aapsLogger, rh, preferences
 ), Automation {
 
     private var disposable: CompositeDisposable = CompositeDisposable()
+    private var scope: CoroutineScope? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var deferredStartObserver: DefaultLifecycleObserver? = null
 
     private val automationEvents = ArrayList<AutomationEventObject>()
     var executionLog: MutableList<String> = ArrayList()
     var btConnects: MutableList<EventBTChange> = ArrayList()
-
-    private var handler: Handler? = null
-    private var refreshLoop: Runnable
 
     companion object {
 
@@ -141,32 +154,51 @@ class AutomationPlugin @Inject constructor(
             "{\"title\":\"Low\",\"enabled\":true,\"trigger\":\"{\\\"type\\\":\\\"TriggerConnector\\\",\\\"data\\\":{\\\"connectorType\\\":\\\"AND\\\",\\\"triggerList\\\":[\\\"{\\\\\\\"type\\\\\\\":\\\\\\\"TriggerBg\\\\\\\",\\\\\\\"data\\\\\\\":{\\\\\\\"bg\\\\\\\":4,\\\\\\\"comparator\\\\\\\":\\\\\\\"IS_LESSER\\\\\\\",\\\\\\\"units\\\\\\\":\\\\\\\"mmol\\\\\\\"}}\\\",\\\"{\\\\\\\"type\\\\\\\":\\\\\\\"TriggerDelta\\\\\\\",\\\\\\\"data\\\\\\\":{\\\\\\\"value\\\\\\\":-0.1,\\\\\\\"units\\\\\\\":\\\\\\\"mmol\\\\\\\",\\\\\\\"deltaType\\\\\\\":\\\\\\\"DELTA\\\\\\\",\\\\\\\"comparator\\\\\\\":\\\\\\\"IS_LESSER\\\\\\\"}}\\\"]}}\",\"actions\":[\"{\\\"type\\\":\\\"ActionStartTempTarget\\\",\\\"data\\\":{\\\"value\\\":8,\\\"units\\\":\\\"mmol\\\",\\\"durationInMinutes\\\":60}}\"]}"
     }
 
-    init {
-        refreshLoop = Runnable {
-            processActions()
-            handler?.postDelayed(refreshLoop, T.secs(150).msecs())
-        }
-    }
-
     override fun specialEnableCondition(): Boolean = !config.AAPSCLIENT
 
+    override fun requiredPermissions(): List<PermissionGroup> = listOf(
+        PermissionGroup(
+            permissions = listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+            rationaleTitle = R.string.permission_location_title,
+            rationaleDescription = R.string.permission_location_description,
+        ),
+        PermissionGroup(
+            permissions = listOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+            rationaleTitle = R.string.permission_location_title,
+            rationaleDescription = R.string.permission_background_location_description,
+        ),
+    )
+
     override fun onStart() {
-        handler = Handler(HandlerThread(this::class.simpleName + "Handler").also { it.start() }.looper)
-        locationServiceHelper.startService(context)
+        startLocationServiceWhenForeground()
 
         super.onStart()
         loadFromSP()
-        handler?.postDelayed(refreshLoop, T.mins(1).msecs())
 
-        disposable += rxBus
-            .toObservable(EventPreferenceChange::class.java)
-            .observeOn(aapsSchedulers.io)
-            .subscribe({ e ->
-                           if (e.isChanged(StringKey.AutomationLocation.key)) {
-                               locationServiceHelper.stopService(context)
-                               locationServiceHelper.startService(context)
-                           }
-                       }, fabricPrivacy::logException)
+        val newScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        scope = newScope
+
+        newScope.launch {
+            delay(T.mins(1).msecs())
+            while (isActive) {
+                processActions()
+                delay(T.secs(150).msecs())
+            }
+        }
+
+        receiverStatusStore.chargingStatusFlow
+            .filterNotNull()
+            .onEach { processActions() }
+            .launchIn(newScope)
+        receiverStatusStore.networkStatusFlow
+            .filterNotNull()
+            .onEach { processActions() }
+            .launchIn(newScope)
+
+        preferences.observe(StringKey.AutomationLocation).drop(1).onEach {
+            locationServiceHelper.stopService(context)
+            locationServiceHelper.startService(context)
+        }.launchIn(newScope)
         disposable += rxBus
             .toObservable(EventAutomationDataChanged::class.java)
             .observeOn(aapsSchedulers.io)
@@ -176,33 +208,50 @@ class AutomationPlugin @Inject constructor(
             .observeOn(aapsSchedulers.io)
             .subscribe({
                            aapsLogger.debug(LTag.AUTOMATION, "Grabbed location: ${it.location.latitude} ${it.location.longitude} Provider: ${it.location.provider}")
-                           processActions()
+                           scope?.launch { processActions() }
                        }, fabricPrivacy::logException)
-        disposable += rxBus
-            .toObservable(EventChargingState::class.java)
-            .observeOn(aapsSchedulers.io)
-            .subscribe({ processActions() }, fabricPrivacy::logException)
-        disposable += rxBus
-            .toObservable(EventNetworkChange::class.java)
-            .observeOn(aapsSchedulers.io)
-            .subscribe({ processActions() }, fabricPrivacy::logException)
         disposable += rxBus
             .toObservable(EventBTChange::class.java)
             .observeOn(aapsSchedulers.io)
             .subscribe({
                            aapsLogger.debug(LTag.AUTOMATION, "Grabbed new BT event: $it")
                            btConnects.add(it)
-                           processActions()
+                           scope?.launch { processActions() }
                        }, fabricPrivacy::logException)
     }
 
     override fun onStop() {
+        scope?.cancel()
+        scope = null
         disposable.clear()
-        handler?.removeCallbacksAndMessages(null)
-        handler?.looper?.quit()
-        handler = null
-        locationServiceHelper.stopService(context)
+        mainHandler.post {
+            deferredStartObserver?.let {
+                ProcessLifecycleOwner.get().lifecycle.removeObserver(it)
+                deferredStartObserver = null
+            }
+            locationServiceHelper.stopService(context)
+        }
         super.onStop()
+    }
+
+    // Android 12+ forbids startForegroundService from background; defer until app is foreground.
+    private fun startLocationServiceWhenForeground() {
+        mainHandler.post {
+            val processLifecycle = ProcessLifecycleOwner.get().lifecycle
+            if (processLifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                locationServiceHelper.startService(context)
+                return@post
+            }
+            val observer = object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) {
+                    processLifecycle.removeObserver(this)
+                    deferredStartObserver = null
+                    locationServiceHelper.startService(context)
+                }
+            }
+            deferredStartObserver = observer
+            processLifecycle.addObserver(observer)
+        }
     }
 
     private fun storeToSP() {
@@ -224,12 +273,15 @@ class AutomationPlugin @Inject constructor(
     private fun loadFromSP() {
         automationEvents.clear()
         val data = preferences.get(AutomationStringKey.AutomationEvents)
+        var needsResave = false
         if (data != "")
             try {
                 val array = JSONArray(data)
                 for (i in 0 until array.length()) {
                     val o = array.getJSONObject(i)
+                    val hadId = o.has("id") && o.optString("id", "").isNotEmpty()
                     val event = AutomationEventObject(injector).fromJSON(o.toString())
+                    if (!hadId) needsResave = true
                     automationEvents.add(event)
                 }
             } catch (e: JSONException) {
@@ -237,9 +289,11 @@ class AutomationPlugin @Inject constructor(
             }
         else
             automationEvents.add(AutomationEventObject(injector).fromJSON(EMPTY_EVENT))
+        // Persist generated IDs for events that didn't have one
+        if (needsResave) storeToSP()
     }
 
-    internal fun processActions() {
+    internal suspend fun processActions() {
         if (!config.appInitialized) return
         /**
          * Changed to false if some condition prevents automation from running.
@@ -297,7 +351,7 @@ class AutomationPlugin @Inject constructor(
         storeToSP() // save last run time
     }
 
-    override fun processEvent(someEvent: AutomationEvent) {
+    override suspend fun processEvent(someEvent: AutomationEvent) {
         val event = someEvent as AutomationEventObject
         if (event.canRun() && event.preconditionCanRun()) {
             val actions = event.actions
@@ -387,6 +441,10 @@ class AutomationPlugin @Inject constructor(
             if (event.userAction && event.isEnabled) list.add(event)
         }
         return list
+    }
+
+    override fun findEventById(id: String): AutomationEvent? {
+        return synchronized(this) { automationEvents.find { it.id == id } }
     }
 
     fun getActionDummyObjects(): List<Action> {
@@ -558,26 +616,14 @@ class AutomationPlugin @Inject constructor(
         removeIfExists(event)
     }
 
-    override fun addPreferenceScreen(preferenceManager: PreferenceManager, parent: PreferenceScreen, context: Context, requiredKey: String?) {
-        if (requiredKey != null) return
-        val entries = arrayOf<CharSequence>(
-            rh.gs(R.string.use_passive_location),
-            rh.gs(R.string.use_network_location),
-            rh.gs(R.string.use_gps_location),
-        )
+    override fun getPreferenceScreenContent() = PreferenceSubScreenDef(
+        key = "automation_settings",
+        titleResId = app.aaps.core.ui.R.string.automation,
+        items = listOf(
+            StringKey.AutomationLocation
 
-        val entryValues = arrayOf<CharSequence>(
-            "PASSIVE",
-            "NETWORK",
-            "GPS",
-        )
-        val category = PreferenceCategory(context)
-        parent.addPreference(category)
-        category.apply {
-            key = "automation_settings"
-            title = rh.gs(app.aaps.core.ui.R.string.automation)
-            initialExpandedChildrenCount = 0
-            addPreference(AdaptiveListPreference(ctx = context, stringKey = StringKey.AutomationLocation, title = R.string.locationservice, entries = entries, entryValues = entryValues))
-        }
-    }
+        ),
+        icon = pluginDescription.icon
+    )
+
 }

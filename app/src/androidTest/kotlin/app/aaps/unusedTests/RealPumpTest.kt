@@ -19,7 +19,6 @@ class RealPumpTest {
         @Inject lateinit var sensitivityOref1Plugin: SensitivityOref1Plugin
         @Inject lateinit var openAPSSMBPlugin: OpenAPSSMBPlugin
         @Inject lateinit var loopPlugin: LoopPlugin
-        @Inject lateinit var actionsPlugin: ActionsPlugin
         @Inject lateinit var configBuilderPlugin: ConfigBuilderPlugin
         @Inject lateinit var objectivesPlugin: ObjectivesPlugin
         @Inject lateinit var treatmentsPlugin: TreatmentsPlugin
@@ -34,8 +33,7 @@ class RealPumpTest {
         var mGrantPermissionRule: GrantPermissionRule =
             GrantPermissionRule.grant(
                 android.Manifest.permission.ACCESS_FINE_LOCATION,
-                android.Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                android.Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
             )
 
         @Before

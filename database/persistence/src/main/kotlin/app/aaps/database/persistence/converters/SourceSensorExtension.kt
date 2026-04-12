@@ -30,6 +30,7 @@ fun GlucoseValue.SourceSensor.fromDb(): SourceSensor =
         GlucoseValue.SourceSensor.GLUNOVO_NATIVE         -> SourceSensor.GLUNOVO_NATIVE
         GlucoseValue.SourceSensor.INTELLIGO_NATIVE       -> SourceSensor.INTELLIGO_NATIVE
         GlucoseValue.SourceSensor.MM_600_SERIES          -> SourceSensor.MM_600_SERIES
+        GlucoseValue.SourceSensor.MM_SIMPLERA            -> SourceSensor.MM_SIMPLERA
         GlucoseValue.SourceSensor.EVERSENSE_E3           -> SourceSensor.EVERSENSE_E3
         GlucoseValue.SourceSensor.EVERSENSE_365          -> SourceSensor.EVERSENSE_365
         GlucoseValue.SourceSensor.AIDEX                  -> SourceSensor.AIDEX
@@ -37,8 +38,8 @@ fun GlucoseValue.SourceSensor.fromDb(): SourceSensor =
         GlucoseValue.SourceSensor.UNKNOWN                -> SourceSensor.UNKNOWN
         GlucoseValue.SourceSensor.OTTAI                  -> SourceSensor.OTTAI
         GlucoseValue.SourceSensor.SYAI_TAG               -> SourceSensor.SYAI_TAG
-        GlucoseValue.SourceSensor.SIBIONIC -> SourceSensor.SIBIONIC
-        GlucoseValue.SourceSensor.SINO     -> SourceSensor.SINO
+        GlucoseValue.SourceSensor.SIBIONIC               -> SourceSensor.SIBIONIC
+        GlucoseValue.SourceSensor.SINO                   -> SourceSensor.SINO
 
         GlucoseValue.SourceSensor.IOB_PREDICTION         -> SourceSensor.IOB_PREDICTION
         GlucoseValue.SourceSensor.A_COB_PREDICTION       -> SourceSensor.A_COB_PREDICTION
@@ -74,6 +75,7 @@ fun SourceSensor.toDb(): GlucoseValue.SourceSensor =
         SourceSensor.GLUNOVO_NATIVE         -> GlucoseValue.SourceSensor.GLUNOVO_NATIVE
         SourceSensor.INTELLIGO_NATIVE       -> GlucoseValue.SourceSensor.INTELLIGO_NATIVE
         SourceSensor.MM_600_SERIES          -> GlucoseValue.SourceSensor.MM_600_SERIES
+        SourceSensor.MM_SIMPLERA            -> GlucoseValue.SourceSensor.MM_SIMPLERA
         SourceSensor.EVERSENSE_E3              -> GlucoseValue.SourceSensor.EVERSENSE_E3
         SourceSensor.EVERSENSE_365              -> GlucoseValue.SourceSensor.EVERSENSE_365
         SourceSensor.AIDEX                  -> GlucoseValue.SourceSensor.AIDEX
@@ -81,8 +83,8 @@ fun SourceSensor.toDb(): GlucoseValue.SourceSensor =
         SourceSensor.UNKNOWN                -> GlucoseValue.SourceSensor.UNKNOWN
         SourceSensor.OTTAI                  -> GlucoseValue.SourceSensor.OTTAI
         SourceSensor.SYAI_TAG               -> GlucoseValue.SourceSensor.SYAI_TAG
-        SourceSensor.SIBIONIC -> GlucoseValue.SourceSensor.SIBIONIC
-        SourceSensor.SINO     -> GlucoseValue.SourceSensor.SINO
+        SourceSensor.SIBIONIC               -> GlucoseValue.SourceSensor.SIBIONIC
+        SourceSensor.SINO                   -> GlucoseValue.SourceSensor.SINO
 
         SourceSensor.IOB_PREDICTION         -> GlucoseValue.SourceSensor.IOB_PREDICTION
         SourceSensor.A_COB_PREDICTION       -> GlucoseValue.SourceSensor.A_COB_PREDICTION
