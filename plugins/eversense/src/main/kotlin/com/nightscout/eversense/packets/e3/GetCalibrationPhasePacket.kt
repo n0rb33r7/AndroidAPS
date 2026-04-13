@@ -1,7 +1,6 @@
 package com.nightscout.eversense.packets.e3
 
 import com.nightscout.eversense.enums.CalibrationPhase
-import com.nightscout.eversense.enums.CalibrationReadiness
 import com.nightscout.eversense.enums.EversenseE3Memory
 import com.nightscout.eversense.enums.EversenseSecurityType
 import com.nightscout.eversense.packets.EversenseBasePacket

@@ -1,6 +1,5 @@
 package com.nightscout.eversense.packets.e3.util
 
-import android.util.Log
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -9,7 +8,7 @@ class EversenseE3Parser {
         fun readDate(data: UByteArray, start: Int): Long {
             require(data.size >= start + 2) { "readDate: data too short (size=${data.size}, start=$start)" }
             val lowByte = data[start].toInt()
-            val highByte = data[start+1].toInt()
+            val highByte = data[start + 1].toInt()
 
             val day = lowByte and 31
             var month = lowByte shr 5

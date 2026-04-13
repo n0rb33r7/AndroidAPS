@@ -92,6 +92,7 @@ data class GlucoseValue(
         INTELLIGO_NATIVE,
         MM_600_SERIES,
         MM_SIMPLERA,
+        EVERSENSE,
         EVERSENSE_E3,
         EVERSENSE_365,
         AIDEX,

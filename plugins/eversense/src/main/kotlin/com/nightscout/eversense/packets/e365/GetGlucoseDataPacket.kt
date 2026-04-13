@@ -45,9 +45,7 @@ class GetGlucoseDataPacket(private val sensorIdLen: Int) : EversenseBasePacket()
     // 00 00 00 00 -> AccelerometerYAxis
     // 00 00 00 00 -> AccelerometerZAxis
     override fun parseResponse(): Response? {
-        if (receivedData.isEmpty()) {
-            return null
-        }
+        if (receivedData.isEmpty()) return null
 
         var sensorIdLen = receivedData[11].toInt()
         if (sensorIdLen == 0x00) {
@@ -65,8 +63,8 @@ class GetGlucoseDataPacket(private val sensorIdLen: Int) : EversenseBasePacket()
         val rawHex = receivedData.toByteArray().joinToString("") { "%02x".format(it) }
 
         return Response(
-            datetime = receivedData.copyOfRange(12+sensorIdLen, 20+sensorIdLen).toUnix(),
-            glucoseInMgDl = receivedData.copyOfRange(20+sensorIdLen, 22+sensorIdLen).toInt(),
+            datetime = receivedData.copyOfRange(12 + sensorIdLen, 20 + sensorIdLen).toUnix(),
+            glucoseInMgDl = receivedData.copyOfRange(20 + sensorIdLen, 22 + sensorIdLen).toInt(),
             trend = getTrend(receivedData[164 + sensorIdLen].toInt()),
             signalStrength = signalRaw,
             sensorId = sensorId,

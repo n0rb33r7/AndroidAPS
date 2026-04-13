@@ -2,7 +2,6 @@ package com.nightscout.eversense.packets.e3.util
 
 import java.util.Calendar
 import java.util.TimeZone
-import kotlin.math.PI
 import kotlin.math.abs
 
 class EversenseE3Writer {

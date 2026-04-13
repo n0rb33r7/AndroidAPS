@@ -13,7 +13,6 @@ import com.nightscout.eversense.callbacks.EversenseScanCallback
 import com.nightscout.eversense.callbacks.EversenseWatcher
 import com.nightscout.eversense.models.EversenseState
 import com.nightscout.eversense.models.EversenseTransmitterSettings
-import com.nightscout.eversense.packets.Eversense365Communicator
 import com.nightscout.eversense.packets.EversenseE3Communicator
 import com.nightscout.eversense.packets.e3.GetSignalStrengthRawPacket
 import com.nightscout.eversense.util.EversenseLogger
@@ -130,15 +129,8 @@ class EversenseCGMPlugin {
         synchronized(connectionLock) {
             if (gattCallback.isConnected()) {
                 EversenseLogger.info(TAG, "Already connected, skipping reconnect")
-                EversenseLogger.info(TAG, "Already connected!")
-            return true
-        }
-
-        if (device != null) {
-            EversenseLogger.info(TAG, "Connecting to ${device.name}")
-            device.connectGatt(context, false, gattCallback)
-            return true
-        }
+                return true
+            }
 
             // Clean up stale GATT connections before connecting
             gattCallback.cleanUp()

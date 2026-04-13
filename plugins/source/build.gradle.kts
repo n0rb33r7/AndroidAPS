@@ -27,7 +27,6 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:utils"))
     implementation(project(":shared:impl"))
-    implementation(project(":plugins:eversense"))
     implementation(project(":ui"))
 
     // Compose

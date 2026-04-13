@@ -16,13 +16,6 @@ import com.nightscout.eversense.exceptions.EversenseWriteException
 import com.nightscout.eversense.packets.Eversense365Communicator
 import com.nightscout.eversense.packets.EversenseBasePacket
 import com.nightscout.eversense.packets.EversenseE3Communicator
-import com.nightscout.eversense.packets.e3.EversenseE3Packets
-import com.nightscout.eversense.packets.e3.SaveBondingInformationPacket
-import java.util.UUID
-import java.util.concurrent.Executors
-import kotlin.jvm.Throws
-import androidx.core.content.edit
-import com.nightscout.eversense.packets.Eversense365Communicator
 import com.nightscout.eversense.packets.e365.AuthIdentityPacket
 import com.nightscout.eversense.packets.e365.AuthStartPacket
 import com.nightscout.eversense.packets.e365.AuthWhoAmIPacket
@@ -66,7 +59,6 @@ class EversenseGattCallback(
     private val bleExecutor = Executors.newSingleThreadExecutor()
     private val networkExecutor = Executors.newSingleThreadExecutor()
 
-    private val executor = Executors.newSingleThreadExecutor()
     private val handler = Handler(Looper.getMainLooper())
     private var bluetoothGatt: BluetoothGatt? = null
     private var eversenseBluetoothService: BluetoothGattService? = null
@@ -76,7 +68,6 @@ class EversenseGattCallback(
     private var payloadSize: Int = 20
     private var security: EversenseSecurityType = EversenseSecurityType.None
     private var cryptoUtil = EversenseCrypto365Util(preferences)
-    var currentPacket: EversenseBasePacket? = null
 
     // FIX 2: Use AtomicReference for currentPacket to avoid the race condition where a stale
     // BLE notification could be processed against the wrong packet between assignment and write.
@@ -366,7 +357,6 @@ class EversenseGattCallback(
             val fourHalfMinAgo = System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(270)
             bleExecutor.submit {
                 if (response.glucoseDatetime > fourHalfMinAgo) {
-                executor.submit {
                     Eversense365Communicator.readGlucose(this, preferences, plugin.watchers)
                     Eversense365Communicator.fullSync(this, preferences, plugin.watchers)
                 }

@@ -1,4 +1,4 @@
-package com.nightscout.eversense.callbacks
+﻿package com.nightscout.eversense.callbacks
 
 import com.nightscout.eversense.enums.EversenseType
 import com.nightscout.eversense.models.ActiveAlarm

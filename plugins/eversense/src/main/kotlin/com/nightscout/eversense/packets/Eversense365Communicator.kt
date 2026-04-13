@@ -191,9 +191,7 @@ class Eversense365Communicator {
                 }
 
                 handler.post {
-                    watchers.forEach {
-                        it.onStateChanged(state)
-                    }
+                    watchers.forEach { it.onStateChanged(state) }
                 }
             } catch (exception: Exception) {
                 EversenseLogger.error(TAG, "Failed to do full sync: $exception")
