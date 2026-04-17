@@ -9,12 +9,12 @@ import android.os.Looper
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
-import androidx.preference.EditTextPreference
-import androidx.preference.Preference
-import androidx.preference.PreferenceCategory
-import androidx.preference.PreferenceManager
-import androidx.preference.PreferenceScreen
-import androidx.preference.SwitchPreference
+//import androidx.preference.EditTextPreference
+//import androidx.preference.Preference
+//import androidx.preference.PreferenceCategory
+//import androidx.preference.PreferenceManager
+//import androidx.preference.PreferenceScreen
+//import androidx.preference.SwitchPreference
 import app.aaps.core.interfaces.configuration.Config
 import app.aaps.core.interfaces.notifications.NotificationId
 import app.aaps.core.interfaces.notifications.NotificationLevel
@@ -52,6 +52,8 @@ import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import app.aaps.core.keys.BooleanKey
+import app.aaps.core.ui.compose.preference.PreferenceSubScreenDef
 import javax.inject.Inject
 
 class EversensePlugin @Inject constructor(
@@ -70,7 +72,7 @@ class EversensePlugin @Inject constructor(
             )
         }
         .pluginIcon(app.aaps.core.objects.R.drawable.ic_blooddrop_48)
-        .preferencesId(PluginDescription.PREFERENCE_SCREEN)
+        //.preferencesId(PluginDescription.PREFERENCE_SCREEN)
         .pluginName(R.string.source_eversense)
         .preferencesVisibleInSimpleMode(false)
         .description(R.string.description_source_eversense),
@@ -89,19 +91,23 @@ class EversensePlugin @Inject constructor(
         context.getSharedPreferences("EversenseCGMManager", Context.MODE_PRIVATE)
     }
 
-    private fun cloudUploadEnabled()      = securePrefs.getBoolean("eversense_cloud_upload_enabled", true)
-    private fun cloudUploadToastEnabled() = securePrefs.getBoolean("eversense_notif_cloud_upload_toast", true)
-
-    private var connectedPreference: Preference? = null
-    private var batteryPreference: Preference? = null
-    private var placementSignalPreference: Preference? = null
-    private var insertionPreference: Preference? = null
-    private var lastSyncPreference: Preference? = null
-    private var currentPhasePreference: Preference? = null
-    private var lastCalibrationPreference: Preference? = null
-    private var nextCalibrationPreference: Preference? = null
-    private var calibrationActionPreference: Preference? = null
+    //private fun cloudUploadEnabled()      = securePrefs.getBoolean("eversense_cloud_upload_enabled", true)
+    //private fun cloudUploadToastEnabled() = securePrefs.getBoolean("eversense_notif_cloud_upload_toast", true)
+//
+    //private var connectedPreference: Preference? = null
+    //private var batteryPreference: Preference? = null
+    //private var placementSignalPreference: Preference? = null
+    //private var insertionPreference: Preference? = null
+    //private var lastSyncPreference: Preference? = null
+    //private var currentPhasePreference: Preference? = null
+    //private var lastCalibrationPreference: Preference? = null
+    //private var nextCalibrationPreference: Preference? = null
+    //private var calibrationActionPreference: Preference? = null
+    private fun cloudUploadEnabled() = preferences.get(BooleanKey.EversenseCloudUploadEnabled)
+    private fun cloudUploadToastEnabled() = preferences.get(BooleanKey.EversenseCloudUploadToast)
     private val lastNotifiedFirmwareVersion: String get() = securePrefs.getString("last_notified_firmware_version", "") ?: ""
+
+
     private fun setLastNotifiedFirmwareVersion(version: String) = securePrefs.edit(commit = true) { putString("last_notified_firmware_version", version) }
     private fun isSensorExpiryDismissed(insertionDate: Long, days: Int): Boolean =
         securePrefs.getBoolean("eversense_expiry_dismissed_${insertionDate}_${days}", false)
@@ -119,7 +125,7 @@ class EversensePlugin @Inject constructor(
     private val NO_SIGNAL_WARNING_THRESHOLD = 3
     private var releaseForOfficialApp: Boolean = false
     @Volatile private var placementNotificationSnoozed: Boolean = false
-    private var releasePreference: Preference? = null
+    //private var releasePreference: Preference? = null
 
     // No extra overrides needed; the abstract class handles defaults.
     init {
@@ -138,9 +144,9 @@ class EversensePlugin @Inject constructor(
             aapsLogger.warn(LTag.BGSOURCE, "Bluetooth permissions not granted — requesting permissions")
             requestBluetoothPermissions()
         }
-        mainHandler.post {
-            connectedPreference?.summary = if (eversense.isConnected()) "✅" else "❌"
-        }
+        //mainHandler.post {
+        //    connectedPreference?.summary = if (eversense.isConnected()) "✅" else "❌"
+        //}
     }
 
     override fun onStop() {
@@ -174,7 +180,8 @@ class EversensePlugin @Inject constructor(
         }
     }
 
-    override fun addPreferenceScreen(
+    /**
+   override fun addPreferenceScreen(
         preferenceManager: PreferenceManager,
         parent: PreferenceScreen,
         context: Context,
@@ -473,6 +480,21 @@ class EversensePlugin @Inject constructor(
             addPreference(cloudUploadToast)
         }
     }
+    */
+
+    override fun getPreferenceScreenContent() = PreferenceSubScreenDef(
+        key = "eversense_settings",
+         R.string.source_eversense,
+          items = listOf(
+              BooleanKey.EversenseUseSmoothing,
+              BooleanKey.EversenseCloudUploadEnabled,
+              BooleanKey.EversenseCloudUploadToast
+          ),
+        icon = pluginDescription.icon
+    )
+
+
+
 
     private fun startOfficialAppReleaseReconnectLoop() {
         if (false) return
@@ -485,7 +507,7 @@ class EversensePlugin @Inject constructor(
                     aapsLogger.info(LTag.BGSOURCE, "Reconnected after official app release")
                     releaseForOfficialApp = false
                     mainHandler.post {
-                        releasePreference?.summary = rh.gs(R.string.eversense_release_summary)
+                        //releasePreference?.summary = rh.gs(R.string.eversense_release_summary)
                         notificationManager.dismiss(NotificationId.EVERSENSE_RELEASE)
                     }
                 } else {
@@ -614,7 +636,7 @@ class EversensePlugin @Inject constructor(
     override fun onConnectionChanged(connected: Boolean) {
         aapsLogger.info(LTag.BGSOURCE, "Connection changed — connected: $connected")
         mainHandler.post {
-            connectedPreference?.summary = if (connected) "✅" else "❌"
+            //connectedPreference?.summary = if (connected) "✅" else "❌"
         }
     }
 
