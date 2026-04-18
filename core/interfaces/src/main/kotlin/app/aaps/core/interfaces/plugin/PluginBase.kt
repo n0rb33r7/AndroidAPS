@@ -32,14 +32,6 @@ abstract class PluginBase(
     private var state = State.NOT_INITIALIZED
     private var fragmentVisible = false
 
-    @Deprecated("use icon")
-    open val menuIcon: Int
-        get() = pluginDescription.pluginIcon
-
-    @Deprecated("use icon2")
-    open val menuIcon2: Int
-        get() = pluginDescription.pluginIcon2
-
     open val name: String
         get() = if (pluginDescription.pluginName == -1) "UNKNOWN" else rh.gs(pluginDescription.pluginName)
 
@@ -68,6 +60,7 @@ abstract class PluginBase(
         return type == PluginType.CONSTRAINTS && pluginDescription.mainType == PluginType.APS && isEnabled(PluginType.APS)
     }
 
+    @Deprecated("remove")
     fun hasFragment(): Boolean {
         return pluginDescription.fragmentClass != null
     }
@@ -147,12 +140,14 @@ abstract class PluginBase(
         }
     }
 
+    @Deprecated("remove")
     open fun setFragmentVisible(type: PluginType, fragmentVisible: Boolean) {
         if (type == pluginDescription.mainType) {
             this.fragmentVisible = fragmentVisible && specialEnableCondition()
         }
     }
 
+    @Deprecated("remove")
     fun isFragmentVisible(): Boolean {
         if (pluginDescription.alwaysVisible) return true
         return if (pluginDescription.neverVisible) false else fragmentVisible

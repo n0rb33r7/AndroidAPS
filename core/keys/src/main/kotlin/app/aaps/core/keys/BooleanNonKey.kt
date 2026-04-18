@@ -26,6 +26,7 @@ enum class BooleanNonKey(
     WizardIncludeTrend("wizard_include_trend_bg", false),
 
     // Export destination settings (managed by ExportOptionsDialog, no preferences UI)
+    @Deprecated("this must be converted to use Preference interface")
     ExportAllCloudEnabled("export_all_cloud_enabled", false),
     ExportLogEmailEnabled("export_log_email_enabled", true),
     ExportLogCloudEnabled("export_log_cloud_enabled", false),
@@ -33,4 +34,6 @@ enum class BooleanNonKey(
     ExportSettingsCloudEnabled("export_settings_cloud_enabled", false),
     ExportCsvLocalEnabled("export_csv_local_enabled", true),
     ExportCsvCloudEnabled("export_csv_cloud_enabled", false),
+
+    AllowHardwarePump("allow_hardware_pump", false),
 }

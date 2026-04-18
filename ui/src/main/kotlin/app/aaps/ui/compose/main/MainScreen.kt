@@ -10,10 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -30,16 +27,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aaps.core.interfaces.notifications.AapsNotification
+import app.aaps.core.interfaces.plugin.PluginBase
 import app.aaps.core.interfaces.pump.BolusProgressState
-import app.aaps.core.ui.compose.AapsFab
 import app.aaps.core.ui.compose.LocalDateUtil
 import app.aaps.core.ui.compose.LocalSnackbarHostState
 import app.aaps.core.ui.compose.dialogs.OkCancelDialog
@@ -66,6 +61,7 @@ import app.aaps.ui.compose.treatmentsSheet.TreatmentViewModel
 import app.aaps.ui.search.SearchIndexEntry
 import app.aaps.ui.search.SearchResults
 import app.aaps.ui.search.SearchUiState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -79,6 +75,7 @@ fun MainScreen(
     statusViewModel: StatusViewModel,
     treatmentViewModel: TreatmentViewModel,
     automationViewModel: AutomationViewModel,
+    loopActionViewModel: app.aaps.ui.compose.loopSheet.LoopActionViewModel,
     // Search
     searchUiState: SearchUiState,
     onSearchQueryChange: (String) -> Unit,
@@ -89,7 +86,6 @@ fun MainScreen(
     onMenuClick: () -> Unit,
     onNavigate: (NavigationRequest) -> Unit,
     onDrawerClosed: () -> Unit,
-    onSwitchToClassicUi: () -> Unit,
     onAboutDialogDismiss: () -> Unit,
     onMaintenanceSheetDismiss: () -> Unit,
     onDirectoryClick: () -> Unit,
@@ -104,9 +100,11 @@ fun MainScreen(
     autoShowNotificationSheet: Boolean,
     onAutoShowConsumed: () -> Unit,
     // Pump setup
-    pumpSetupClassName: String? = null,
-    pumpSetupIcon: ImageVector? = null,
-    pumpSetupLabel: String? = null,
+    pumpSetupPlugin: PluginBase? = null,
+    // BG source shortcut
+    bgSetupPlugin: PluginBase? = null,
+    bgQualityBadgeIconRes: Int = 0,
+    bgQualityBadgeDescription: String? = null,
     // Permissions
     permissionsMissing: Boolean = false,
     onPermissionsClick: () -> Unit = {},
@@ -130,6 +128,7 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     var showTreatmentSheet by remember { mutableStateOf(false) }
     var showAutomationSheet by remember { mutableStateOf(false) }
+    var showLoopActionSheet by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Sync drawer state with ui state
@@ -295,6 +294,7 @@ fun MainScreen(
                                 .align(Alignment.BottomCenter)
                                 .padding(bottom = scaffoldPadding.calculateBottomPadding())
                         ) {
+                            val loopActionState = loopActionViewModel.uiState.collectAsStateWithLifecycle().value
                             MainNavigationBar(
                                 onManageClick = { manageSheetState.show() },
                                 onTreatmentClick = {
@@ -307,12 +307,15 @@ fun MainScreen(
                                     showAutomationSheet = true
                                 },
                                 automationCount = automationViewModel.uiState.collectAsStateWithLifecycle().value.items.size,
-                                pumpSetupClassName = pumpSetupClassName,
-                                pumpSetupIcon = pumpSetupIcon,
-                                pumpSetupLabel = pumpSetupLabel,
+                                pumpSetupPlugin = pumpSetupPlugin,
+                                bgSetupPlugin = bgSetupPlugin,
+                                bgQualityBadgeIconRes = bgQualityBadgeIconRes,
+                                bgQualityBadgeDescription = bgQualityBadgeDescription,
                                 onNavigate = onNavigate,
                                 permissionsMissing = permissionsMissing,
                                 onPermissionsClick = onPermissionsClick,
+                                loopActionAvailable = loopActionState.actionAvailable,
+                                onLoopActionClick = { showLoopActionSheet = true },
                                 modifier = Modifier.onSizeChanged { bottomBarHeightPx = it.height }
                             )
                         }
@@ -332,19 +335,6 @@ fun MainScreen(
                             QuickLaunchToolbar(
                                 items = quickLaunchItems,
                                 onActionClick = onQuickLaunchActionClick,
-                            )
-                        }
-
-                        // FABs
-                        if (showChrome) {
-                            val fabBottomPadding = scaffoldPadding.calculateBottomPadding() +
-                                with(density) { bottomBarHeightPx.toDp() } +
-                                if (hasToolbar) 64.dp else 16.dp
-                            SwitchUiFab(
-                                onClick = onSwitchToClassicUi,
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(bottom = fabBottomPadding, end = 16.dp)
                             )
                         }
 
@@ -393,6 +383,16 @@ fun MainScreen(
             )
         }
 
+        // Loop accept action bottom sheet
+        if (showLoopActionSheet) {
+            val loopState by loopActionViewModel.uiState.collectAsStateWithLifecycle()
+            app.aaps.ui.compose.loopSheet.LoopActionBottomSheet(
+                state = loopState,
+                onPerform = { mainViewModel.performLoopAccept() },
+                onDismiss = { showLoopActionSheet = false }
+            )
+        }
+
         // Shared confirmation dialog (automation actions, TT presets — from toolbar or bottom sheets)
         val actionConfirmation by mainViewModel.actionConfirmation.collectAsStateWithLifecycle()
         actionConfirmation?.let { confirmation ->
@@ -429,19 +429,3 @@ fun MainScreen(
 
 private val PREVIEW_MODE_MIN_HEIGHT: Dp = 500.dp
 private const val AUTO_HIDE_DELAY_MS = 3000L
-
-@Composable
-private fun SwitchUiFab(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    AapsFab(
-        onClick = onClick,
-        modifier = modifier
-    ) {
-        Icon(
-            imageVector = Icons.Filled.SwapHoriz,
-            contentDescription = "Switch to classic UI"
-        )
-    }
-}

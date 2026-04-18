@@ -29,11 +29,14 @@ import app.aaps.core.keys.interfaces.Preferences
 import app.aaps.core.objects.extensions.displayText
 import app.aaps.core.objects.extensions.round
 import app.aaps.core.ui.R
-import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flow
@@ -42,7 +45,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import java.util.Locale
-import javax.inject.Inject
 
 /**
  * ViewModel for Overview graphs (Compose/Vico version).
@@ -106,10 +108,9 @@ data class SensitivityUiState(
     val hasData: Boolean = false
 )
 
-@HiltViewModel
 @Stable
-class GraphViewModel @Inject constructor(
-    cache: OverviewDataCache,
+class GraphViewModel @AssistedInject constructor(
+    @Assisted cache: OverviewDataCache,
     private val graphConfigRepository: GraphConfigRepository,
     private val aapsLogger: AAPSLogger,
     private val preferences: Preferences,
@@ -127,25 +128,31 @@ class GraphViewModel @Inject constructor(
     private val activePlugin: ActivePlugin
 ) : ViewModel() {
 
+    @AssistedFactory
+    interface Factory {
+
+        fun create(cache: OverviewDataCache): GraphViewModel
+    }
+
     // Chart config - updates when high/low mark preferences change
-    val chartConfigFlow: StateFlow<ChartConfig>
-        field = MutableStateFlow(
-            ChartConfig(
-                highMark = preferences.get(UnitDoubleKey.OverviewHighMark),
-                lowMark = preferences.get(UnitDoubleKey.OverviewLowMark)
-            )
+    private val _chartConfigFlow = MutableStateFlow(
+        ChartConfig(
+            highMark = preferences.get(UnitDoubleKey.OverviewHighMark),
+            lowMark = preferences.get(UnitDoubleKey.OverviewLowMark)
         )
+    )
+    val chartConfigFlow: StateFlow<ChartConfig> = _chartConfigFlow.asStateFlow()
 
     init {
         // Update chart config when high/low mark preferences change
         // drop(1) skips the initial emission (already set in field initializer)
         preferences.observe(UnitDoubleKey.OverviewHighMark)
             .drop(1)
-            .onEach { highMark -> chartConfigFlow.update { it.copy(highMark = highMark) } }
+            .onEach { highMark -> _chartConfigFlow.update { it.copy(highMark = highMark) } }
             .launchIn(viewModelScope)
         preferences.observe(UnitDoubleKey.OverviewLowMark)
             .drop(1)
-            .onEach { lowMark -> chartConfigFlow.update { it.copy(lowMark = lowMark) } }
+            .onEach { lowMark -> _chartConfigFlow.update { it.copy(lowMark = lowMark) } }
             .launchIn(viewModelScope)
     }
 
@@ -364,6 +371,10 @@ class GraphViewModel @Inject constructor(
 
     init {
         aapsLogger.debug(LTag.UI, "GraphViewModel initialized - exposing independent series flows")
+    }
+
+    fun onGraphInteraction() {
+        preferences.put(BooleanNonKey.ObjectivesScaleUsed, true)
     }
 
     override fun onCleared() {

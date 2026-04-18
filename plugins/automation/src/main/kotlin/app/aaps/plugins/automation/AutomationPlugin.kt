@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -20,16 +19,17 @@ import app.aaps.core.interfaces.configuration.Config
 import app.aaps.core.interfaces.constraints.ConstraintsChecker
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.logging.LTag
+import app.aaps.core.interfaces.logging.UserEntryLogger
 import app.aaps.core.interfaces.plugin.ActivePlugin
 import app.aaps.core.interfaces.plugin.PermissionGroup
 import app.aaps.core.interfaces.plugin.PluginBase
 import app.aaps.core.interfaces.plugin.PluginBaseWithPreferences
 import app.aaps.core.interfaces.plugin.PluginDescription
-import app.aaps.core.interfaces.queue.Callback
 import app.aaps.core.interfaces.receivers.ReceiverStatusStore
 import app.aaps.core.interfaces.resources.ResourceHelper
 import app.aaps.core.interfaces.rx.AapsSchedulers
 import app.aaps.core.interfaces.rx.bus.RxBus
+import app.aaps.core.interfaces.rx.events.EventAutomationDataChanged
 import app.aaps.core.interfaces.rx.events.EventBTChange
 import app.aaps.core.interfaces.utils.DateUtil
 import app.aaps.core.interfaces.utils.fabric.FabricPrivacy
@@ -50,9 +50,9 @@ import app.aaps.plugins.automation.actions.ActionSettingsExport
 import app.aaps.plugins.automation.actions.ActionStartTempTarget
 import app.aaps.plugins.automation.actions.ActionStopProcessing
 import app.aaps.plugins.automation.actions.ActionStopTempTarget
+import app.aaps.plugins.automation.compose.AutomationComposeContent
 import app.aaps.plugins.automation.elements.Comparator
 import app.aaps.plugins.automation.elements.InputDelta
-import app.aaps.plugins.automation.events.EventAutomationDataChanged
 import app.aaps.plugins.automation.events.EventAutomationUpdateGui
 import app.aaps.plugins.automation.events.EventLocationChange
 import app.aaps.plugins.automation.keys.AutomationStringKey
@@ -84,7 +84,6 @@ import app.aaps.plugins.automation.triggers.TriggerTempTargetValue
 import app.aaps.plugins.automation.triggers.TriggerTime
 import app.aaps.plugins.automation.triggers.TriggerTimeRange
 import app.aaps.plugins.automation.triggers.TriggerWifiSsid
-import app.aaps.plugins.automation.ui.TimerUtil
 import dagger.android.HasAndroidInjector
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.kotlin.plusAssign
@@ -124,16 +123,28 @@ class AutomationPlugin @Inject constructor(
     private val dateUtil: DateUtil,
     private val activePlugin: ActivePlugin,
     private val timerUtil: TimerUtil,
-    private val receiverStatusStore: ReceiverStatusStore
+    private val receiverStatusStore: ReceiverStatusStore,
+    private val uel: UserEntryLogger,
+    private val localProfileManager: app.aaps.core.interfaces.profile.LocalProfileManager
 ) : PluginBaseWithPreferences(
     pluginDescription = PluginDescription()
         .mainType(PluginType.GENERAL)
-        .fragmentClass(AutomationFragment::class.qualifiedName)
+        .composeContent { plugin ->
+            AutomationComposeContent(
+                plugin = plugin as AutomationPlugin,
+                rxBus = rxBus,
+                aapsSchedulers = aapsSchedulers,
+                fabricPrivacy = fabricPrivacy,
+                injector = injector,
+                uel = uel,
+                rh = rh,
+                localProfileManager = localProfileManager
+            )
+        }
         .icon(IcPluginAutomation)
         .pluginName(R.string.automation)
         .shortName(R.string.automation_short)
         .showInList { config.APS }
-        .neverVisible(!config.APS)
         .description(R.string.automation_description),
     ownPreferences = listOf(AutomationStringKey::class.java),
     aapsLogger, rh, preferences
@@ -358,31 +369,26 @@ class AutomationPlugin @Inject constructor(
             for (action in actions) {
                 action.title = event.title
                 if (action.isValid()) {
-                    action.doAction(object : Callback() {
-                        override fun run() {
-                            val sb = StringBuilder()
-                                .append(dateUtil.timeString(dateUtil.now()))
-                                .append(" ")
-                                .append(if (result.success) "☺" else "▼")
-                                .append(" <b>")
-                                .append(event.title)
-                                .append(":</b> ")
-                                .append(action.shortDescription())
-                                .append(": ")
-                                .append(result.comment)
-                            executionLog.add(sb.toString())
-                            aapsLogger.debug(LTag.AUTOMATION, "Executed: $sb")
-                            rxBus.send(EventAutomationUpdateGui())
-                        }
-                    })
-                    SystemClock.sleep(3000)
+                    val result = action.doAction()
+                    val sb = StringBuilder()
+                        .append(dateUtil.timeString(dateUtil.now()))
+                        .append(" ")
+                        .append(if (result.success) "☺" else "▼")
+                        .append(" <b>")
+                        .append(event.title)
+                        .append(":</b> ")
+                        .append(action.shortDescription())
+                        .append(": ")
+                        .append(result.comment)
+                    executionLog.add(sb.toString())
+                    aapsLogger.debug(LTag.AUTOMATION, "Executed: $sb")
+                    rxBus.send(EventAutomationUpdateGui())
                 } else {
                     executionLog.add("Invalid action: ${action.shortDescription()}")
                     aapsLogger.debug(LTag.AUTOMATION, "Invalid action: ${action.shortDescription()}")
                     rxBus.send(EventAutomationUpdateGui())
                 }
             }
-            SystemClock.sleep(1100)
             event.lastRun = dateUtil.now()
             if (event.autoRemove) remove(event)
         }
@@ -512,7 +518,7 @@ class AutomationPlugin @Inject constructor(
     }
 
     /**
-     * Generate reminder via [app.aaps.plugins.automation.ui.TimerUtil]
+     * Generate reminder via [TimerUtil]
      *
      * @param seconds seconds to the future
      */

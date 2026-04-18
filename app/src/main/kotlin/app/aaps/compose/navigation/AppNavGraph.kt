@@ -25,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
@@ -66,6 +67,7 @@ import app.aaps.ui.compose.careDialog.CareDialogScreen
 import app.aaps.ui.compose.configuration.ConfigurationViewModel
 import app.aaps.ui.compose.extendedBolusDialog.ExtendedBolusDialogScreen
 import app.aaps.ui.compose.fillDialog.FillDialogScreen
+import app.aaps.ui.compose.history.HistoryScreen
 import app.aaps.ui.compose.insulinDialog.InsulinDialogScreen
 import app.aaps.ui.compose.insulinManagement.InsulinManagementScreen
 import app.aaps.ui.compose.insulinManagement.InsulinManagementViewModel
@@ -102,6 +104,7 @@ import app.aaps.ui.compose.treatments.viewmodels.TreatmentsViewModel
 import app.aaps.ui.compose.wizardDialog.WizardDialogScreen
 import app.aaps.ui.search.BuiltInSearchables
 import kotlinx.coroutines.launch
+import app.aaps.plugins.main.R as PluginsMainR
 
 /**
  * Safe popBackStack that prevents double-navigation during transitions.
@@ -457,6 +460,13 @@ fun NavGraphBuilder.appNavGraph(
         )
     }
 
+    composable(AppRoute.HistoryBrowser.route) {
+        HistoryScreen(
+            title = stringResource(PluginsMainR.string.nav_history_browser),
+            onNavigateBack = { navController.safePopBackStack() }
+        )
+    }
+
     composable(AppRoute.Preferences.route) {
         AllPreferencesScreen(
             activePlugin = activePlugin,
@@ -485,7 +495,7 @@ fun NavGraphBuilder.appNavGraph(
     }
 
     composable(AppRoute.QuickLaunchConfig.route) {
-        val quickLaunchConfigViewModel: QuickLaunchConfigViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val quickLaunchConfigViewModel: QuickLaunchConfigViewModel = hiltViewModel()
         QuickLauchConfigScreen(
             viewModel = quickLaunchConfigViewModel,
             onNavigateBack = { navController.safePopBackStack() }
@@ -567,7 +577,7 @@ fun NavGraphBuilder.appNavGraph(
     }
 
     composable(AppRoute.FoodManagement.route) {
-        val foodManagementViewModel: app.aaps.ui.compose.foodManagement.FoodManagementViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val foodManagementViewModel: app.aaps.ui.compose.foodManagement.FoodManagementViewModel = hiltViewModel()
         app.aaps.ui.compose.foodManagement.FoodManagementScreen(
             viewModel = foodManagementViewModel,
             onNavigateBack = { navController.safePopBackStack() },

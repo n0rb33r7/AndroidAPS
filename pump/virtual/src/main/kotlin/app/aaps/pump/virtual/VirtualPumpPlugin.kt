@@ -50,6 +50,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -98,21 +99,21 @@ open class VirtualPumpPlugin @Inject constructor(
         .shortName(R.string.virtual_pump_shortname)
         .description(R.string.description_pump_virtual)
         .setDefault()
-        .neverVisible(config.AAPSCLIENT),
+        .showInList { !config.AAPSCLIENT },
     ownPreferences = listOf(VirtualBooleanNonPreferenceKey::class.java),
     aapsLogger, rh, preferences, commandQueue
 ), Pump, VirtualPump {
 
     private var scope: CoroutineScope? = null
 
-    val batteryPercentFlow: StateFlow<Int>
-        field = MutableStateFlow(50)
+    private val _batteryPercentFlow = MutableStateFlow(50)
+    val batteryPercentFlow: StateFlow<Int> = _batteryPercentFlow.asStateFlow()
 
-    val reservoirInUnitsFlow: StateFlow<Int>
-        field = MutableStateFlow(50)
+    private val _reservoirInUnitsFlow = MutableStateFlow(50)
+    val reservoirInUnitsFlow: StateFlow<Int> = _reservoirInUnitsFlow.asStateFlow()
 
-    val pumpTypeFlow: StateFlow<PumpType?>
-        field = MutableStateFlow(null)
+    private val _pumpTypeFlow = MutableStateFlow<PumpType?>(null)
+    val pumpTypeFlow: StateFlow<PumpType?> = _pumpTypeFlow.asStateFlow()
 
     private val _lastDataTime = MutableStateFlow(0L)
     override val lastDataTime: StateFlow<Long> = _lastDataTime
@@ -397,7 +398,7 @@ open class VirtualPumpPlugin @Inject constructor(
         if (pumpTypeFlow.value == pumpTypeNew) return
         aapsLogger.debug(LTag.PUMP, "New pump configuration found ($pumpTypeNew), changing from previous (${pumpTypeFlow.value})")
         pumpDescription.fillFor(pumpTypeNew)
-        pumpTypeFlow.value = pumpTypeNew
+        _pumpTypeFlow.value = pumpTypeNew
     }
 
     override fun timezoneOrDSTChanged(timeChangeType: TimeChangeType) {}

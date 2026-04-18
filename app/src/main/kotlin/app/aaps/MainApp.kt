@@ -53,6 +53,7 @@ import app.aaps.core.interfaces.utils.HardLimits
 import app.aaps.core.interfaces.utils.SafeParse
 import app.aaps.core.interfaces.utils.fabric.FabricPrivacy
 import app.aaps.core.interfaces.versionChecker.VersionCheckerUtils
+import app.aaps.core.keys.BooleanComposedKey
 import app.aaps.core.keys.BooleanKey
 import app.aaps.core.keys.BooleanNonKey
 import app.aaps.core.keys.IntKey
@@ -71,7 +72,6 @@ import app.aaps.database.AppRepository
 import app.aaps.implementation.lifecycle.ProcessLifecycleListener
 import app.aaps.implementation.plugin.PluginStore
 import app.aaps.implementation.receivers.NetworkChangeReceiver
-import app.aaps.plugins.configuration.keys.ConfigurationBooleanComposedKey
 import app.aaps.plugins.constraints.objectives.keys.ObjectivesLongComposedKey
 import app.aaps.plugins.constraints.signatureVerifier.SignatureVerifierPlugin
 import app.aaps.receivers.BTReceiver
@@ -225,7 +225,7 @@ class MainApp : Application(), HasAndroidInjector {
         handler.postDelayed(
             {
                 // log version
-                appScope.launch { persistenceLayer.insertVersionChangeIfChanged(config.VERSION_NAME, BuildConfig.VERSION_CODE, gitRemote, commitHash) }
+                persistenceLayer.insertVersionChangeIfChanged(config.VERSION_NAME, BuildConfig.VERSION_CODE, gitRemote, commitHash)
                 // log app start
                 if (preferences.get(BooleanKey.NsClientLogAppStart))
                     appScope.launch {
@@ -456,12 +456,12 @@ class MainApp : Application(), HasAndroidInjector {
         for ((key, value) in keys) {
             if (key.startsWith("ConfigBuilder_") && key.endsWith("_Enabled")) {
                 val plugin = key.split("_")[1] + "_" + key.split("_")[2]
-                preferences.put(ConfigurationBooleanComposedKey.ConfigBuilderEnabled, plugin, value = value as Boolean)
+                preferences.put(BooleanComposedKey.ConfigBuilderEnabled, plugin, value = value as Boolean)
                 sp.remove(key)
             }
             if (key.startsWith("ConfigBuilder_") && key.endsWith("_Visible")) {
                 val plugin = key.split("_")[1] + "_" + key.split("_")[2]
-                preferences.put(ConfigurationBooleanComposedKey.ConfigBuilderVisible, plugin, value = value as Boolean)
+                preferences.put(BooleanComposedKey.ConfigBuilderVisible, plugin, value = value as Boolean)
                 sp.remove(key)
             }
         }
@@ -628,15 +628,13 @@ class MainApp : Application(), HasAndroidInjector {
         // Check if old preferences exist (existing installation vs new installation)
         val hasOldPreferences = sp.contains("eatingsoon_target")
 
-        val units = profileFunction.getUnits()
-
         // Create 3 default presets - values always stored in mg/dL
         val presets = listOf(
             TTPreset(
                 id = "eatingsoon",
                 reason = TT.Reason.EATING_SOON,
                 targetValue = if (hasOldPreferences) {
-                    profileUtil.convertToMgdl(sp.getDouble("eatingsoon_target", 90.0), units)
+                    profileUtil.convertToMgdlDetect(sp.getDouble("eatingsoon_target", 90.0))
                 } else {
                     Constants.DEFAULT_TT_EATING_SOON_TARGET
                 },
@@ -651,7 +649,7 @@ class MainApp : Application(), HasAndroidInjector {
                 id = "activity",
                 reason = TT.Reason.ACTIVITY,
                 targetValue = if (hasOldPreferences) {
-                    profileUtil.convertToMgdl(sp.getDouble("activity_target", 140.0), units)
+                    profileUtil.convertToMgdlDetect(sp.getDouble("activity_target", 140.0))
                 } else {
                     Constants.DEFAULT_TT_ACTIVITY_TARGET
                 },
@@ -666,7 +664,7 @@ class MainApp : Application(), HasAndroidInjector {
                 id = "hypo",
                 reason = TT.Reason.HYPOGLYCEMIA,
                 targetValue = if (hasOldPreferences) {
-                    profileUtil.convertToMgdl(sp.getDouble("hypo_target", 160.0), units)
+                    profileUtil.convertToMgdlDetect(sp.getDouble("hypo_target", 160.0))
                 } else {
                     Constants.DEFAULT_TT_HYPO_TARGET
                 },
