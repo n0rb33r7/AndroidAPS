@@ -53,6 +53,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import app.aaps.core.keys.BooleanKey
+import app.aaps.core.keys.DoubleKey
+import app.aaps.core.keys.StringKey
 import app.aaps.core.ui.compose.preference.PreferenceSubScreenDef
 import javax.inject.Inject
 
@@ -181,7 +183,7 @@ class EversensePlugin @Inject constructor(
     }
 
     /**
-   override fun addPreferenceScreen(
+    override fun addPreferenceScreen(
         preferenceManager: PreferenceManager,
         parent: PreferenceScreen,
         context: Context,
@@ -197,7 +199,8 @@ class EversensePlugin @Inject constructor(
         bgSourceCategory?.let { category ->
             val eselSmoothing = SwitchPreference(context)
             eselSmoothing.key = "eversense_use_smoothing"
-            eselSmoothing.title = rh.gs(R.string.eversense_use_smoothing)
+    */
+    /**     eselSmoothing.title = rh.gs(R.string.eversense_use_smoothing)
             eselSmoothing.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newValue ->
                 eversense.setSmoothing(newValue as Boolean)
                 true
@@ -215,7 +218,8 @@ class EversensePlugin @Inject constructor(
 
             val uploadEnabled = SwitchPreference(context)
             uploadEnabled.key = "eversense_cloud_upload_enabled"
-            uploadEnabled.title = "Enable Eversense Data Upload"
+     */
+    /**     uploadEnabled.title = "Enable Eversense Data Upload"
             uploadEnabled.summary = "Automatically upload BG readings to the Eversense cloud"
             uploadEnabled.isChecked = securePrefs.getBoolean("eversense_cloud_upload_enabled", true)
             uploadEnabled.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, v ->
@@ -226,7 +230,8 @@ class EversensePlugin @Inject constructor(
 
             val username = EditTextPreference(context)
             username.key = "eversense_credentials_username"
-            username.title = rh.gs(R.string.eversense_credentials_username)
+     */
+    /**     username.title = rh.gs(R.string.eversense_credentials_username)
             username.summary = if (secureState.username.isNotEmpty()) secureState.username
             else rh.gs(R.string.eversense_credentials_not_set)
             username.text = secureState.username
@@ -244,7 +249,8 @@ class EversensePlugin @Inject constructor(
 
             val password = EditTextPreference(context)
             password.key = "eversense_credentials_password"
-            password.title = rh.gs(R.string.eversense_credentials_password)
+     */
+    /**     password.title = rh.gs(R.string.eversense_credentials_password)
             password.summary = if (secureState.password.isNotEmpty()) rh.gs(R.string.eversense_credentials_password_set)
             else rh.gs(R.string.eversense_credentials_not_set)
             password.text = secureState.password
@@ -285,7 +291,8 @@ class EversensePlugin @Inject constructor(
             // Sign Out button
             val signOut = Preference(context)
             signOut.key = "eversense_credentials_sign_out"
-            signOut.title = "Sign Out"
+     */
+    /**     signOut.title = "Sign Out"
             signOut.summary = "Clear saved username and password"
             signOut.onPreferenceClickListener = Preference.OnPreferenceClickListener {
                 AlertDialog.Builder(preferenceManager.context)
@@ -310,6 +317,8 @@ class EversensePlugin @Inject constructor(
             addPreference(signOut)
         }
 
+     */
+    /**
         // Calibration section
         val calibration = PreferenceCategory(context)
         parent.addPreference(calibration)
@@ -320,13 +329,16 @@ class EversensePlugin @Inject constructor(
 
             val currentPhase = Preference(context)
             currentPhase.key = "eversense_calibration_phase"
-            currentPhase.title = rh.gs(R.string.eversense_calibration_phase)
+     */
+    /**     currentPhase.title = rh.gs(R.string.eversense_calibration_phase)
             currentPhase.summary = state?.calibrationPhase?.name ?: notConnected
             addPreference(currentPhase)
             currentPhasePreference = currentPhase
 
             val lastCalibration = Preference(context)
             lastCalibration.key = "eversense_calibration_last"
+     */
+    /**
             lastCalibration.title = rh.gs(R.string.eversense_calibration_last)
             lastCalibration.summary = state?.let { dateFormatter.format(Date(it.lastCalibrationDate)) } ?: notConnected
             addPreference(lastCalibration)
@@ -334,6 +346,8 @@ class EversensePlugin @Inject constructor(
 
             val nextCalibration = Preference(context)
             nextCalibration.key = "eversense_calibration_next"
+     */
+    /**
             nextCalibration.title = rh.gs(R.string.eversense_calibration_next)
             nextCalibration.summary = state?.let { dateFormatter.format(Date(it.nextCalibrationDate)) } ?: notConnected
             addPreference(nextCalibration)
@@ -341,6 +355,8 @@ class EversensePlugin @Inject constructor(
 
             val calibrationAction = Preference(context)
             calibrationAction.key = "eversense_calibration_action"
+     */
+    /**
             calibrationAction.title = rh.gs(R.string.eversense_calibration_action)
             calibrationAction.summary = when {
                 state == null -> notConnected
@@ -369,7 +385,10 @@ class EversensePlugin @Inject constructor(
             calibrationActionPreference = calibrationAction
         }
 
-        // Information section
+
+     */
+    /**
+     *  // Information section
         val information = PreferenceCategory(context)
         parent.addPreference(information)
         information.apply {
@@ -378,6 +397,8 @@ class EversensePlugin @Inject constructor(
 
             val connected = Preference(context)
             connected.key = "eversense_information_connected"
+     */
+    /**
             connected.title = rh.gs(R.string.eversense_information_connected)
             connected.summary = if (eversense.isConnected()) "✅" else "❌"
             connected.onPreferenceClickListener = Preference.OnPreferenceClickListener {
@@ -416,6 +437,8 @@ class EversensePlugin @Inject constructor(
 
             val battery = Preference(context)
             battery.key = "eversense_information_battery"
+     */
+    /**
             battery.title = rh.gs(R.string.eversense_information_battery)
             battery.summary = state?.let { "${it.batteryPercentage}%" } ?: notConnected
             addPreference(battery)
@@ -423,6 +446,8 @@ class EversensePlugin @Inject constructor(
 
             val placementSignal = Preference(context)
             placementSignal.key = "eversense_information_placement_signal"
+     */
+    /**
             placementSignal.title = rh.gs(R.string.eversense_placement_signal)
             placementSignal.summary = state?.let { signalToLabel(it.sensorSignalStrength) } ?: notConnected
             placementSignal.onPreferenceClickListener = Preference.OnPreferenceClickListener {
@@ -436,6 +461,8 @@ class EversensePlugin @Inject constructor(
 
             val insertion = Preference(context)
             insertion.key = "eversense_information_insertion_date"
+     */
+    /**
             insertion.title = rh.gs(R.string.eversense_information_insertion_date)
             insertion.summary = state?.let { dateFormatter.format(Date(it.insertionDate)) } ?: notConnected
             addPreference(insertion)
@@ -443,6 +470,8 @@ class EversensePlugin @Inject constructor(
 
             val lastSync = Preference(context)
             lastSync.key = "eversense_information_last_sync"
+     */
+    /**
             lastSync.title = rh.gs(R.string.eversense_information_last_sync)
             lastSync.summary = state?.let { dateFormatter.format(Date(it.lastSync)) } ?: notConnected
             lastSync.onPreferenceClickListener = Preference.OnPreferenceClickListener {
@@ -460,6 +489,8 @@ class EversensePlugin @Inject constructor(
             lastSyncPreference = lastSync
         }
 
+     */
+    /**
         // Notifications section — E365 only
         val notifications = PreferenceCategory(context)
         parent.addPreference(notifications)
@@ -470,6 +501,8 @@ class EversensePlugin @Inject constructor(
 
             val cloudUploadToast = SwitchPreference(context)
             cloudUploadToast.key = "eversense_notif_cloud_upload_toast"
+     */
+    /**
             cloudUploadToast.title = "Show cloud upload result"
             cloudUploadToast.summary = "Display a toast after each BG upload to the Eversense cloud"
             cloudUploadToast.isChecked = securePrefs.getBoolean("eversense_notif_cloud_upload_toast", true)
@@ -484,17 +517,22 @@ class EversensePlugin @Inject constructor(
 
     override fun getPreferenceScreenContent() = PreferenceSubScreenDef(
         key = "eversense_settings",
-         R.string.source_eversense,
-          items = listOf(
-              BooleanKey.EversenseUseSmoothing,
-              BooleanKey.EversenseCloudUploadEnabled,
-              BooleanKey.EversenseCloudUploadToast
-          ),
-        icon = pluginDescription.icon
+            titleResId = R.string.source_eversense,
+            items = listOf(
+                BooleanKey.EversenseUseSmoothing,
+                BooleanKey.EversenseCloudUploadEnabled,
+                BooleanKey.EversenseCloudUploadToast,
+                PreferenceSubScreenDef(
+                    key = "eversense_credentials",
+                    titleResId = R.string.eversense_credentials_title,
+                    items = listOf(
+                        StringKey.EversenseCredentialsUsername,
+                        StringKey.EversenseCredentialsPassword,
+                    )
+                )
+            ),
+            icon = pluginDescription.icon
     )
-
-
-
 
     private fun startOfficialAppReleaseReconnectLoop() {
         if (false) return

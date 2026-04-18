@@ -195,5 +195,16 @@ enum class StringKey(
         isPassword = true,
         validator = StringValidator.minLength(17)
     ),
+    EversenseCredentialsUsername(
+        key = "eversense_credentials_username",
+        defaultValue = "",
+        titleResId = R.string.eversense_username_title
+    ),
+    EversenseCredentialsPassword(
+        key = "eversense_credentials_password",
+        defaultValue = "",
+        titleResId = R.string.eversense_password_title,
+        isPassword = true
+    ),
 
 }

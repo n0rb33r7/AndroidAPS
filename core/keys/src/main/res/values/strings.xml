@@ -465,8 +465,12 @@
 
     <!--    Appearance preferences-->
     <string name="prefs_range_title">Range for visualization</string>
+
+    <!-- Eversense prefrences -->
     <string name="eversense_use_smoothing">Use ESEL smoothing</string>
     <string name="eversense_cloud_upload_enabled">Enable Eversense cloud upload</string>
     <string name="eversense_cloud_upload_toast">Show cloud upload result</string>
+    <string name="eversense_username_title">Username</string>
+    <string name="eversense_password_title">Password</string>
 
 </resources>
