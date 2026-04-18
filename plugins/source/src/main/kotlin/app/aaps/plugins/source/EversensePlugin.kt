@@ -55,6 +55,7 @@ import java.util.Locale
 import app.aaps.core.keys.BooleanKey
 import app.aaps.core.keys.DoubleKey
 import app.aaps.core.keys.StringKey
+import app.aaps.core.ui.compose.icons.IcPluginEversense
 import app.aaps.core.ui.compose.preference.PreferenceSubScreenDef
 import javax.inject.Inject
 
@@ -73,7 +74,7 @@ class EversensePlugin @Inject constructor(
                 title = rh.gs(R.string.source_eversense)
             )
         }
-        .pluginIcon(app.aaps.core.objects.R.drawable.ic_blooddrop_48)
+        .icon(IcPluginEversense)
         //.preferencesId(PluginDescription.PREFERENCE_SCREEN)
         .pluginName(R.string.source_eversense)
         .preferencesVisibleInSimpleMode(false)
