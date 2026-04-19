@@ -52,6 +52,12 @@ import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import app.aaps.core.keys.interfaces.withActivity
+import app.aaps.plugins.source.activities.EversenseStatusActivity
+import app.aaps.plugins.source.activities.EversenseCalibrationActivity
+import app.aaps.plugins.source.activities.EversensePlacementActivity
+import app.aaps.plugins.source.keys.EversenseIntentKey
+//import app.aaps.plugins.source.keys.EversenseStringKey
 import app.aaps.core.keys.BooleanKey
 import app.aaps.core.keys.DoubleKey
 import app.aaps.core.keys.StringKey
@@ -520,6 +526,7 @@ class EversensePlugin @Inject constructor(
         key = "eversense_settings",
             titleResId = R.string.source_eversense,
             items = listOf(
+                EversenseIntentKey.EversenseStatus.withActivity(EversenseStatusActivity::class.java),
                 BooleanKey.EversenseUseSmoothing,
                 BooleanKey.EversenseCloudUploadEnabled,
                 BooleanKey.EversenseCloudUploadToast,
@@ -530,7 +537,9 @@ class EversensePlugin @Inject constructor(
                         StringKey.EversenseCredentialsUsername,
                         StringKey.EversenseCredentialsPassword,
                     )
-                )
+                ),
+                EversenseIntentKey.EversenseCalibration.withActivity(EversenseCalibrationActivity::class.java as Class<*>),
+                EversenseIntentKey.EversensePlacement.withActivity(EversensePlacementActivity::class.java as Class<*>)
             ),
             icon = pluginDescription.icon
     )
